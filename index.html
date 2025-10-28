@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Embedded Messaging – Test locale</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; }
+    form label { display:block; margin-top: 12px; }
+    input { padding:8px; width: 320px; max-width: 90vw; }
+    button { margin-top: 16px; padding: 10px 16px; font-weight: 600; }
+    .muted { color:#666; font-size: 14px; margin-top:8px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; background: rgba(0,0,0,.85); color: #fff; padding: 12px 16px; border-radius: 12px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease; z-index: 9999; }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: #0a7a0a; }
+    #toast.error { background: #a40000; }
+    #toast.info { background: #333; }
+  </style>
+</head>
+<body>
+  <h2>Local Embedded Messaging Test</h2>
+
+  <form id="prechatForm">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" placeholder="es. mario.rossi">
+
+    <label for="sn">Serial Number</label>
+    <input type="text" id="sn" name="sn" placeholder="es. A1B2C3D4">
+
+    <label for="model">Model</label>
+    <input type="text" id="model" name="model" placeholder="es. X200">
+
+    <button id="openBtn" type="button" disabled>Avvia Chatbot</button>
+    <div class="muted" id="sdkState">Caricamento SDK…</div>
+  </form>
+
+  <div id="toast" aria-live="polite"></div>
+
+  <!-- =========================================================
+       1) SNIPPET UFFICIALE SALESFORCE
+       ========================================================= -->
+  <script type='text/javascript'>
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = 'en_US';
+
+        embeddedservice_bootstrap.init(
+          '00DUA0000038A3h',
+          'newlocaltest',
+          'https://carpigiani--agentforce.sandbox.my.site.com/ESWnewlocaltest1757264261509',
+          {
+            scrt2URL: 'https://carpigiani--agentforce.sandbox.my.salesforce-scrt.com'
+          }
+        );
+      } catch (err) {
+        console.error('Error loading Embedded Messaging: ', err);
+      }
+    };
+  </script>
+  <script type='text/javascript' src='https://carpigiani--agentforce.sandbox.my.site.com/ESWnewlocaltest1757264261509/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+
+  <!-- =========================================================
+       2) CODICE PERSONALIZZATO (CON CAMPI PRE-CHAT NASCOSTI)
+       ========================================================= -->
+  <script>
+    window.__sdkReady = false;
+
+    function showToast(message, type = 'info', timeout = 3000) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.className = '';
+      el.textContent = message;
+      el.classList.add(type);
+      void el.offsetWidth;
+      el.classList.add('show');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => el.classList.remove('show'), timeout);
+    }
+
+    function checkFormFields() {
+      const u = document.getElementById('username').value.trim();
+      const sn = document.getElementById('sn').value.trim();
+      const model = document.getElementById('model').value.trim();
+      const btn = document.getElementById('openBtn');
+      btn.disabled = !(window.__sdkReady && u && sn && model);
+    }
+
+    document.getElementById('username').addEventListener('input', checkFormFields);
+    document.getElementById('sn').addEventListener('input', checkFormFields);
+    document.getElementById('model').addEventListener('input', checkFormFields);
+
+    window.addEventListener('onEmbeddedMessagingReady', () => {
+      window.__sdkReady = true;
+      const state = document.getElementById('sdkState');
+      if (state) state.textContent = 'SDK pronto. Compila i campi e avvia il chatbot.';
+      showToast('SDK pronto. Compila i campi e avvia il chatbot.', 'info');
+      checkFormFields();
+    });
+
+    // Funzione che apre il widget e imposta i campi pre-chat nascosti
+    function openMessaging() {
+      if (!window.__sdkReady || !window.embeddedservice_bootstrap?.utilAPI) {
+        alert('Il widget non è ancora pronto. Attendi qualche secondo e riprova.');
+        return;
+      }
+
+      // Preleva valori dal form
+      const username = document.getElementById('username').value.trim();
+      const sn = document.getElementById('sn').value.trim();
+      const model = document.getElementById('model').value.trim();
+
+      try {
+        embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+          "UsernameInput": username,
+          "SN_Input": sn,
+          "ModelInput": model
+        });
+        console.log("[prechat] impostati", { username, sn, model });
+      } catch (e) {
+        console.warn("Errore impostando i campi pre-chat:", e);
+      }
+
+      showToast('Avvio chatbot…', 'info');
+
+      // Avvio widget (senza mandare messaggi automatici)
+      if (embeddedservice_bootstrap.utilAPI.launchChat) {
+        embeddedservice_bootstrap.utilAPI.launchChat();
+      }
+      document.getElementById('openBtn').disabled = true;
+    }
+
+    document.getElementById('openBtn').addEventListener('click', openMessaging);
+  </script>
+</body>
+</html>
